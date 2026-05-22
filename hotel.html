@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reception — Bed Status</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --free:#16a34a;--free-bg:#dcfce7;--free-text:#14532d;
+  --occ:#dc2626;--occ-bg:#fee2e2;--occ-text:#7f1d1d;
+  --bg:#f1f5f9;--card:#fff;--hdr:#0f172a;
+  --text:#1e293b;--muted:#64748b;--border:#e2e8f0;
+  --radius:12px;--blue:#3b82f6;
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── HEADER ── */
+header{background:var(--hdr);padding:0 24px;height:64px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.logo{font-size:19px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-0.3px}
+.logo-sub{font-size:12px;font-weight:400;color:rgba(255,255,255,0.35);margin-left:6px;letter-spacing:0}
+.stats-bar{display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+.stat{padding:5px 14px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap}
+.stat-rooms{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.stat-free{background:#166534;color:#86efac}
+.stat-occ{background:#991b1b;color:#fca5a5}
+.add-btn{background:var(--blue);color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s;font-family:inherit}
+.add-btn:hover{background:#2563eb}
+
+/* ── GRID ── */
+main{padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;align-items:start}
+.empty{grid-column:1/-1;text-align:center;padding:100px 24px;color:var(--muted)}
+.empty h2{font-size:22px;margin-bottom:8px;color:var(--text)}
+.empty p{font-size:14px}
+.loading{grid-column:1/-1;text-align:center;padding:60px 24px;color:var(--muted);font-size:15px}
+
+/* ── ROOM CARD ── */
+.room-card{background:var(--card);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);overflow:hidden}
+.room-hdr{padding:13px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.room-name{font-size:16px;font-weight:800;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.type-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:100px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;flex-shrink:0}
+.t-single{background:#f1f5f9;color:#475569}
+.t-double{background:#ede9fe;color:#5b21b6}
+.t-bunk{background:#fef3c7;color:#78350f}
+.t-dorm{background:#ccfbf1;color:#134e4a}
+.t-suite{background:#fce7f3;color:#831843}
+.del-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 7px;border-radius:6px;font-size:15px;line-height:1;transition:all .15s;flex-shrink:0}
+.del-btn:hover{background:var(--occ-bg);color:var(--occ)}
+
+.room-meta{padding:6px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.meta-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.meta-dot.free-dot{background:var(--free)}
+.meta-dot.occ-dot{background:var(--occ)}
+
+/* ── BEDS ── */
+.beds{padding:12px}
+
+/* Regular bed grid */
+.bed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.bed-btn{border:none;border-radius:9px;padding:10px 8px 10px;cursor:pointer;font-size:12px;font-weight:600;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:66px;justify-content:center;font-family:inherit;line-height:1.25}
+.bed-btn.free{background:var(--free-bg);color:var(--free-text)}
+.bed-btn.free:hover{background:#bbf7d0}
+.bed-btn.occ{background:var(--occ-bg);color:var(--occ-text)}
+.bed-btn.occ:hover{background:#fecaca}
+.bed-circle{width:11px;height:11px;border-radius:50%;margin-bottom:1px}
+.free .bed-circle{background:var(--free)}
+.occ .bed-circle{background:var(--occ)}
+.bed-lbl{font-size:11px;font-weight:500;opacity:.75}
+.bed-status{font-size:12px;font-weight:800}
+
+/* Bunk layout */
+.bunks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.bunk-pair{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.bunk-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:5px 10px 4px;background:var(--bg);border-bottom:1px solid var(--border)}
+.bunk-pair .bed-btn{border-radius:0;flex-direction:row;justify-content:space-between;min-height:48px;padding:8px 10px;gap:0;align-items:center;border-bottom:1px solid var(--border)}
+.bunk-pair .bed-btn:last-child{border-bottom:none}
+.bunk-pair .bed-btn .bed-lbl{font-size:12px;font-weight:700;opacity:1;text-align:left;flex:1}
+.status-tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:100px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
+.free .status-tag{background:#bbf7d0;color:#14532d}
+.occ .status-tag{background:#fecaca;color:#7f1d1d}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+.overlay.hidden{display:none}
+.modal{background:#fff;border-radius:16px;padding:28px;width:100%;max-width:420px;box-shadow:0 25px 60px rgba(0,0,0,.25)}
+.modal h2{font-size:19px;font-weight:800;margin-bottom:20px}
+.fg{margin-bottom:16px}
+.fg label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.fg input,.fg select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;color:var(--text);outline:none;transition:border-color .15s;background:#fff}
+.fg input:focus,.fg select:focus{border-color:var(--blue)}
+.fg small{display:block;margin-top:5px;font-size:11px;color:var(--muted)}
+.modal-btns{display:flex;gap:10px;margin-top:22px}
+.btn-pri{flex:1;background:var(--blue);color:#fff;border:none;padding:11px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s}
+.btn-pri:hover{background:#2563eb}
+.btn-sec{flex:1;background:var(--bg);color:var(--text);border:1.5px solid var(--border);padding:11px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.btn-sec:hover{background:#e2e8f0}
+.btn-danger{flex:1;background:var(--occ);color:#fff;border:none;padding:10px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-danger:hover{background:#b91c1c}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Reception <span class="logo-sub">Bed Status</span></div>
+  <div class="stats-bar">
+    <div class="stat stat-rooms" id="sRooms">— rooms</div>
+    <div class="stat stat-free"  id="sFree">— free</div>
+    <div class="stat stat-occ"   id="sOcc">— occupied</div>
+  </div>
+  <button class="add-btn" id="addRoomBtn">+ Add Room</button>
+</header>
+
+<main id="grid"><div class="loading">Loading…</div></main>
+
+<!-- Add Room Modal -->
+<div class="overlay hidden" id="addModal">
+  <div class="modal">
+    <h2>Add Room</h2>
+    <div class="fg">
+      <label>Room Name</label>
+      <input type="text" id="fName" placeholder="e.g. 101, Dorm A, Garden Suite" autocomplete="off">
+    </div>
+    <div class="fg">
+      <label>Room Type</label>
+      <select id="fType">
+        <option value="single">Single — 1 bed</option>
+        <option value="double">Double — 1 double bed</option>
+        <option value="bunk">Bunk Room — top &amp; bottom bunks</option>
+        <option value="dorm">Dormitory — shared beds</option>
+        <option value="suite">Suite / Family — multiple beds</option>
+      </select>
+    </div>
+    <div class="fg hidden" id="fBunkGroup">
+      <label>Number of Bunk Pairs</label>
+      <input type="number" id="fBunks" min="1" max="20" value="2">
+      <small>Each pair = 1 top + 1 bottom bunk</small>
+    </div>
+    <div class="fg hidden" id="fBedGroup">
+      <label>Number of Beds</label>
+      <input type="number" id="fBeds" min="1" max="30" value="4">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-sec" id="cancelAdd">Cancel</button>
+      <button class="btn-pri" id="submitAdd">Add Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="overlay hidden" id="delModal">
+  <div class="modal">
+    <h2>Remove Room?</h2>
+    <p id="delMsg" style="color:var(--muted);font-size:14px;margin-bottom:0">This will permanently remove the room and all bed data.</p>
+    <div class="modal-btns">
+      <button class="btn-sec" id="cancelDel">Cancel</button>
+      <button class="btn-danger" id="confirmDel">Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/hotel';
+let rooms = [];
+let pendingDeleteId = null;
+
+// ── Helpers ──────────────────────────────────────────────
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+
+function show(id){ document.getElementById(id).classList.remove('hidden') }
+function hide(id){ document.getElementById(id).classList.add('hidden') }
+
+// ── Data ─────────────────────────────────────────────────
+async function load(){
+  const res = await fetch(`${API}/rooms`);
+  const d = await res.json();
+  rooms = d.rooms || [];
+  renderAll();
+}
+
+// ── Render ───────────────────────────────────────────────
+function renderAll(){
+  updateStats();
+  renderGrid();
+}
+
+function updateStats(){
+  const total = rooms.reduce((s,r)=>s+r.beds.length,0);
+  const occ   = rooms.reduce((s,r)=>s+r.beds.filter(b=>b.occupied).length,0);
+  document.getElementById('sRooms').textContent = `${rooms.length} room${rooms.length!==1?'s':''}`;
+  document.getElementById('sFree').textContent  = `${total-occ} free`;
+  document.getElementById('sOcc').textContent   = `${occ} occupied`;
+}
+
+function renderGrid(){
+  const g = document.getElementById('grid');
+  if(!rooms.length){
+    g.innerHTML = `<div class="empty"><h2>No rooms yet</h2><p>Click "+ Add Room" to get started.</p></div>`;
+    return;
+  }
+  g.innerHTML = rooms.map(roomCard).join('');
+}
+
+const TYPE_LABEL = {single:'Single',double:'Double',bunk:'Bunk',dorm:'Dorm',suite:'Suite'};
+
+function roomCard(room){
+  const free = room.beds.filter(b=>!b.occupied).length;
+  const occ  = room.beds.length - free;
+  const summary = occ===0
+    ? `<span class="meta-dot free-dot"></span> All ${room.beds.length} bed${room.beds.length!==1?'s':''} free`
+    : free===0
+      ? `<span class="meta-dot occ-dot"></span> All ${room.beds.length} bed${room.beds.length!==1?'s':''} occupied`
+      : `<span class="meta-dot free-dot"></span> ${free} free &nbsp;·&nbsp; <span class="meta-dot occ-dot"></span> ${occ} occupied`;
+
+  return `
+<div class="room-card">
+  <div class="room-hdr">
+    <span class="room-name">${esc(room.name)}</span>
+    <span class="type-badge t-${room.type}">${TYPE_LABEL[room.type]||room.type}</span>
+    <button class="del-btn" data-delete="${room.id}" title="Remove room">✕</button>
+  </div>
+  <div class="room-meta">${summary}</div>
+  <div class="beds">${room.type==='bunk' ? bunkBeds(room) : regularBeds(room)}</div>
+</div>`;
+}
+
+function regularBeds(room){
+  return `<div class="bed-grid">${room.beds.map(b=>bedBtn(b,room.id,false)).join('')}</div>`;
+}
+
+function bunkBeds(room){
+  const pairs = {};
+  room.beds.forEach(b=>{ if(!pairs[b.bunkPair]) pairs[b.bunkPair]={}; pairs[b.bunkPair][b.position]=b; });
+  const sorted = Object.keys(pairs).sort((a,b)=>+a-+b);
+  return `<div class="bunks-grid">${sorted.map(n=>`
+    <div class="bunk-pair">
+      <div class="bunk-label">Bunk ${n}</div>
+      ${pairs[n].top    ? bedBtn(pairs[n].top,   room.id, true) : ''}
+      ${pairs[n].bottom ? bedBtn(pairs[n].bottom, room.id, true) : ''}
+    </div>`).join('')}</div>`;
+}
+
+function bedBtn(bed, roomId, isBunk){
+  const cls = bed.occupied ? 'occ' : 'free';
+  const statusText = bed.occupied ? 'Occupied' : 'Free';
+  if(isBunk){
+    return `<button class="bed-btn ${cls}" data-room="${roomId}" data-bed="${bed.id}">
+      <span class="bed-lbl">${esc(bed.label)}</span>
+      <span class="status-tag">${statusText}</span>
+    </button>`;
+  }
+  return `<button class="bed-btn ${cls}" data-room="${roomId}" data-bed="${bed.id}">
+    <div class="bed-circle"></div>
+    <span class="bed-lbl">${esc(bed.label)}</span>
+    <span class="bed-status">${statusText}</span>
+  </button>`;
+}
+
+// ── Toggle bed ───────────────────────────────────────────
+document.getElementById('grid').addEventListener('click', async e=>{
+  const bedEl = e.target.closest('[data-bed]');
+  const delEl = e.target.closest('[data-delete]');
+
+  if(bedEl){
+    const roomId = bedEl.dataset.room, bedId = bedEl.dataset.bed;
+    const room = rooms.find(r=>r.id===roomId);
+    const bed  = room?.beds.find(b=>b.id===bedId);
+    if(!bed) return;
+    bed.occupied = !bed.occupied; // optimistic
+    renderAll();
+    try{ await fetch(`${API}/rooms/${roomId}/beds/${bedId}`,{method:'PATCH'}); }
+    catch{ bed.occupied=!bed.occupied; renderAll(); } // revert
+    return;
+  }
+
+  if(delEl){
+    pendingDeleteId = delEl.dataset.delete;
+    const room = rooms.find(r=>r.id===pendingDeleteId);
+    document.getElementById('delMsg').textContent = `Remove "${room?.name||'this room'}" and all its bed data? This cannot be undone.`;
+    show('delModal');
+  }
+});
+
+// ── Delete ───────────────────────────────────────────────
+document.getElementById('confirmDel').addEventListener('click', async()=>{
+  if(!pendingDeleteId) return;
+  hide('delModal');
+  try{
+    await fetch(`${API}/rooms/${pendingDeleteId}`,{method:'DELETE'});
+    rooms = rooms.filter(r=>r.id!==pendingDeleteId);
+    renderAll();
+  }catch{ alert('Failed to remove room.'); }
+  pendingDeleteId = null;
+});
+document.getElementById('cancelDel').addEventListener('click',()=>{ hide('delModal'); pendingDeleteId=null; });
+
+// ── Add Room Modal ───────────────────────────────────────
+document.getElementById('addRoomBtn').addEventListener('click',()=>{
+  show('addModal');
+  document.getElementById('fName').focus();
+});
+document.getElementById('cancelAdd').addEventListener('click',()=>hide('addModal'));
+
+document.getElementById('fType').addEventListener('change',function(){
+  const t = this.value;
+  document.getElementById('fBunkGroup').classList.toggle('hidden', t!=='bunk');
+  document.getElementById('fBedGroup').classList.toggle('hidden', !['dorm','suite'].includes(t));
+});
+
+document.getElementById('submitAdd').addEventListener('click', async()=>{
+  const name = document.getElementById('fName').value.trim();
+  const type = document.getElementById('fType').value;
+  if(!name){ document.getElementById('fName').focus(); return; }
+
+  const bunkCount = Math.max(1, parseInt(document.getElementById('fBunks').value)||2);
+  const bedCount  = Math.max(1, parseInt(document.getElementById('fBeds').value)||4);
+
+  let beds = [];
+  if(type==='single')      beds=[{label:'Bed',      position:null, bunkPair:null}];
+  else if(type==='double') beds=[{label:'Double Bed',position:null, bunkPair:null}];
+  else if(type==='bunk')   for(let i=1;i<=bunkCount;i++){ beds.push({label:'Top',   position:'top',   bunkPair:i}); beds.push({label:'Bottom',position:'bottom',bunkPair:i}); }
+  else                     for(let i=1;i<=bedCount; i++)  beds.push({label:`Bed ${i}`,position:null,bunkPair:null});
+
+  try{
+    const res = await fetch(`${API}/rooms`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,beds})});
+    const d = await res.json();
+    rooms.push(d.room);
+    renderAll();
+    hide('addModal');
+    document.getElementById('fName').value='';
+    document.getElementById('fType').value='single';
+    document.getElementById('fBunkGroup').classList.add('hidden');
+    document.getElementById('fBedGroup').classList.add('hidden');
+  }catch{ alert('Failed to add room.'); }
+});
+
+// Close modals on backdrop click
+['addModal','delModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){
+    if(e.target===this){ this.classList.add('hidden'); pendingDeleteId=null; }
+  });
+});
+
+// Escape key
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  hide('addModal'); hide('delModal'); pendingDeleteId=null;
+});
+
+// Enter submits add form
+document.getElementById('fName').addEventListener('keydown',e=>{
+  if(e.key==='Enter') document.getElementById('submitAdd').click();
+});
+
+load();
+</script>
+</body>
+</html>
